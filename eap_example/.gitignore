@@ -1,4 +1,6 @@
 *.d
 eap_example
+eap_example_openssl
+eap_example_cyassl
 libeap.so
 libeap.a

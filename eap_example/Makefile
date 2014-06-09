@@ -14,15 +14,19 @@ ifndef CFLAGS
 CFLAGS = -MMD -O2 -Wall -g
 endif
 
+USE_OPENSSL=n
 
 CFLAGS += -I.
 CFLAGS += -I../src
+CFLAGS += -I../src/crypto
 CFLAGS += -I../src/utils
+CFLAGS += -I../src/tls
+CFLAGS += -I/usr/local/include
 
 
 OBJS_both += ../src/utils/libutils.a
-OBJS_both += ../src/crypto/libcrypto.a
-OBJS_both += ../src/tls/libtls.a
+#OBJS_both += ../src/crypto/libcrypto.a
+#OBJS_both += ../src/tls/libtls.a
 
 OBJS_both += ../src/eap_common/eap_peap_common.o
 OBJS_both += ../src/eap_common/eap_psk_common.o
@@ -30,6 +34,21 @@ OBJS_both += ../src/eap_common/eap_pax_common.o
 OBJS_both += ../src/eap_common/eap_sake_common.o
 OBJS_both += ../src/eap_common/eap_gpsk_common.o
 OBJS_both += ../src/eap_common/chap.o
+
+ifeq ($(USE_OPENSSL),y)
+OBJS_both += ../src/crypto/crypto_openssl.o
+else
+OBJS_both += ../src/crypto/crypto_cyassl.o
+endif
+
+OBJS_both += ../src/crypto/sha1-tlsprf.o
+OBJS_both += ../src/crypto/md5.o
+
+ifeq ($(USE_OPENSSL),y)
+OBJS_both += ../src/crypto/tls_openssl.o
+else
+OBJS_both += ../src/crypto/tls_cyassl.o
+endif
 
 OBJS_peer += ../src/eap_peer/eap_tls.o
 OBJS_peer += ../src/eap_peer/eap_peap.o
@@ -50,29 +69,29 @@ OBJS_peer += ../src/eap_peer/eap_methods.o
 OBJS_peer += ../src/eap_peer/eap_tls_common.o
 
 CFLAGS += -DEAP_TLS
-CFLAGS += -DEAP_PEAP
-CFLAGS += -DEAP_TTLS
-CFLAGS += -DEAP_MD5
-CFLAGS += -DEAP_MSCHAPv2
-CFLAGS += -DEAP_GTC
-CFLAGS += -DEAP_OTP
-CFLAGS += -DEAP_LEAP
-CFLAGS += -DEAP_PSK
-CFLAGS += -DEAP_PAX
-CFLAGS += -DEAP_SAKE
-CFLAGS += -DEAP_GPSK -DEAP_GPSK_SHA256
+#CFLAGS += -DEAP_PEAP
+#CFLAGS += -DEAP_TTLS
+#CFLAGS += -DEAP_MD5
+#CFLAGS += -DEAP_MSCHAPv2
+#CFLAGS += -DEAP_GTC
+#CFLAGS += -DEAP_OTP
+#CFLAGS += -DEAP_LEAP
+#CFLAGS += -DEAP_PSK
+#CFLAGS += -DEAP_PAX
+#CFLAGS += -DEAP_SAKE
+#CFLAGS += -DEAP_GPSK -DEAP_GPSK_SHA256
 
 CFLAGS += -DEAP_SERVER_IDENTITY
 CFLAGS += -DEAP_SERVER_TLS
-CFLAGS += -DEAP_SERVER_PEAP
-CFLAGS += -DEAP_SERVER_TTLS
-CFLAGS += -DEAP_SERVER_MD5
-CFLAGS += -DEAP_SERVER_MSCHAPV2
-CFLAGS += -DEAP_SERVER_GTC
-CFLAGS += -DEAP_SERVER_PSK
-CFLAGS += -DEAP_SERVER_PAX
-CFLAGS += -DEAP_SERVER_SAKE
-CFLAGS += -DEAP_SERVER_GPSK -DEAP_SERVER_GPSK_SHA256
+#CFLAGS += -DEAP_SERVER_PEAP
+#CFLAGS += -DEAP_SERVER_TTLS
+#CFLAGS += -DEAP_SERVER_MD5
+#CFLAGS += -DEAP_SERVER_MSCHAPV2
+#CFLAGS += -DEAP_SERVER_GTC
+#CFLAGS += -DEAP_SERVER_PSK
+#CFLAGS += -DEAP_SERVER_PAX
+#CFLAGS += -DEAP_SERVER_SAKE
+#CFLAGS += -DEAP_SERVER_GPSK -DEAP_SERVER_GPSK_SHA256
 
 CFLAGS += -DIEEE8021X_EAPOL
 
@@ -143,7 +162,13 @@ libeap.so: $(OBJS_lib)
 endif
 
 eap_example: $(OBJS_ex) $(LIBEAP)
-	$(LDO) $(LDFLAGS) -o eap_example $(OBJS_ex) -L. -leap $(LIBS)
+ifeq ($(USE_OPENSSL),y)
+	$(LDO) $(LDFLAGS) -o eap_example $(OBJS_ex) -L. -leap $(LIBS) -lcrypto -lssl -L/usr/local/lib
+	cp $@ eap_example_openssl
+else
+	$(LDO) $(LDFLAGS) -o eap_example $(OBJS_ex) -L. -leap $(LIBS) -lcrypto -lcyassl -L/usr/local/lib
+	cp $@ eap_example_cyassl
+endif
 
 clean:
 	$(MAKE) -C ../src clean

@@ -78,6 +78,7 @@ struct tls_config {
 	void (*event_cb)(void *ctx, enum tls_event ev,
 			 union tls_event_data *data);
 	void *cb_ctx;
+	int server;
 };
 
 #define TLS_CONN_ALLOW_SIGN_RSA_MD5 BIT(0)

@@ -35,7 +35,7 @@ static int server_get_eap_user(void *ctx, const u8 *identity,
 	if (!phase2) {
 		/* Only allow EAP-PEAP as the Phase 1 method */
 		user->methods[0].vendor = EAP_VENDOR_IETF;
-		user->methods[0].method = EAP_TYPE_PEAP;
+		user->methods[0].method = EAP_TYPE_TLS;
 		return 0;
 	}
 
@@ -71,16 +71,19 @@ static int eap_example_server_init_tls(void)
 	struct tls_connection_params tparams;
 
 	os_memset(&tconf, 0, sizeof(tconf));
+	tconf.server = 1;
 	eap_ctx.tls_ctx = tls_init(&tconf);
 	if (eap_ctx.tls_ctx == NULL)
 		return -1;
 
 	os_memset(&tparams, 0, sizeof(tparams));
-	tparams.ca_cert = "ca.pem";
-	tparams.client_cert = "server.pem";
-	/* tparams.private_key = "server.key"; */
-	tparams.private_key = "server-key.pem";
+	/* tparams.ca_cert = "ca.pem"; */
+	/* tparams.client_cert = "server.pem"; */
+	/* tparams.private_key = "server-key.pem"; */
 	/* tparams.private_key_passwd = "whatever"; */
+	tparams.ca_cert = "ZIPTestCA.cert.pem";
+	tparams.client_cert = "ZIPTestCoordinator.cert.pem";
+	tparams.private_key = "ZIPTestCoordinator.key.pem";
 
 	if (tls_global_set_params(eap_ctx.tls_ctx, &tparams)) {
 		printf("Failed to set TLS parameters\n");
