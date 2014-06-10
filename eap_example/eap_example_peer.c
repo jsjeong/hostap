@@ -370,8 +370,16 @@ int eap_example_peer_step(void)
 
 void eap_example_peer_rx(const u8 *data, size_t data_len)
 {
+	size_t i;
 	/* Make received EAP message available to the EAP library */
 	eap_ctx.eapReq = TRUE;
 	wpabuf_free(eap_ctx.eapReqData);
 	eap_ctx.eapReqData = wpabuf_alloc_copy(data, data_len);
+	printf("PEER RX:\n");
+	for (i = 0; i < data_len; i++) {
+		printf("%02X ", data[i]);
+		if (i % 16 == 15)
+			printf("\n");
+	}
+	printf("\n");
 }

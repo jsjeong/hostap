@@ -290,9 +290,18 @@ int eap_example_server_step(void)
 
 void eap_example_server_rx(const u8 *data, size_t data_len)
 {
+	size_t i;
 	/* Make received EAP message available to the EAP library */
 	wpabuf_free(eap_ctx.eap_if->eapRespData);
 	eap_ctx.eap_if->eapRespData = wpabuf_alloc_copy(data, data_len);
 	if (eap_ctx.eap_if->eapRespData)
 		eap_ctx.eap_if->eapResp = TRUE;
+
+	printf("SERVER RX:\n");
+	for (i = 0; i < data_len; i++) {
+		printf("%02X ", data[i]);
+		if (i % 16 == 15)
+			printf("\n");
+	}
+	printf("\n");
 }
