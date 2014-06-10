@@ -8,6 +8,8 @@
 
 #include "includes.h"
 
+#include <cyassl/options.h>
+#include <cyassl/ssl.h>
 #include <cyassl/openssl/ssl.h>
 #include <cyassl/openssl/err.h>
 #include <cyassl/openssl/pkcs12.h>
@@ -281,7 +283,7 @@ void * tls_init(const struct tls_config *conf)
     if (tls_global == NULL)
       return NULL;
 
-    //CyaSSL_Debugging_ON();
+    CyaSSL_Debugging_ON();
   }
 
   tls_openssl_ref_count++;
@@ -418,7 +420,7 @@ struct tls_connection * tls_connection_init(void *ssl_ctx)
 /*   options |= SSL_OP_NO_COMPRESSION; */
 /* #endif /\* SSL_OP_NO_COMPRESSION *\/ */
 /*   SSL_set_options(conn->ssl, options); */
-
+  CyaSSL_UseSupportedCurve(conn->ssl, CYASSL_ECC_SECP256R1);
   return conn;
 }
 
