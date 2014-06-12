@@ -298,8 +298,10 @@ int eap_example_peer_init(void)
 	eap_ctx.eap_config.fragment_size = 1398;
 
 	// Added for EAP-TLS
-	eap_ctx.eap_config.client_cert = (u8 *) os_strdup("ZIPTestNode.cert.pem");
-	eap_ctx.eap_config.private_key = (u8 *) os_strdup("ZIPTestNode.key.pem");
+	eap_ctx.eap_config.client_cert =
+	  (u8 *) os_strdup("ZIPTestNode.chaincert.pem");
+	eap_ctx.eap_config.private_key =
+	  (u8 *) os_strdup("ZIPTestNode.key.pem");
 
 	os_memset(&eap_cb, 0, sizeof(eap_cb));
 	eap_cb.get_config = peer_get_config;

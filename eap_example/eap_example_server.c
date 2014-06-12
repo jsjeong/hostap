@@ -82,7 +82,7 @@ static int eap_example_server_init_tls(void)
 	/* tparams.private_key = "server-key.pem"; */
 	/* tparams.private_key_passwd = "whatever"; */
 	tparams.ca_cert = "ZIPTestCA.cert.pem";
-	tparams.client_cert = "ZIPTestCoordinator.cert.pem";
+	tparams.client_cert = "ZIPTestCoordinator.chaincert.pem";
 	tparams.private_key = "ZIPTestCoordinator.key.pem";
 
 	if (tls_global_set_params(eap_ctx.tls_ctx, &tparams)) {
