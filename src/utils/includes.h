@@ -37,6 +37,7 @@
 
 #ifndef CONFIG_NATIVE_WINDOWS
 #ifndef CONFIG_TI_COMPILER
+#ifndef NOS
 #include <sys/socket.h>
 #include <netinet/in.h>
 #include <arpa/inet.h>
@@ -44,6 +45,7 @@
 #include <sys/uio.h>
 #include <sys/time.h>
 #endif /* __vxworks */
+#endif /* NOS */
 #endif /* CONFIG_TI_COMPILER */
 #endif /* CONFIG_NATIVE_WINDOWS */
 
