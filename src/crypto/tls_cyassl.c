@@ -9,6 +9,7 @@
 #include "includes.h"
 
 #include <cyassl/ctaocrypt/settings.h>
+#include <cyassl/options.h>
 #include <cyassl/ssl.h>
 #include <cyassl/openssl/ssl.h>
 #include <cyassl/openssl/err.h>
