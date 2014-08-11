@@ -8,7 +8,7 @@
 
 #include "includes.h"
 
-#include <cyassl/options.h>
+#include <cyassl/ctaocrypt/settings.h>
 #include <cyassl/ssl.h>
 #include <cyassl/openssl/ssl.h>
 #include <cyassl/openssl/err.h>
@@ -465,7 +465,7 @@ static int tls_connection_ca_cert(void *_ssl_ctx, struct tls_connection *conn,
   }
 
   if (ca_cert || ca_path) {
-#ifndef OPENSSL_NO_STDIO
+#ifndef NO_FILESYSTEM
     if (CyaSSL_CTX_load_verify_locations(ssl_ctx, ca_cert, ca_path)
 	!= SSL_SUCCESS) {
       wpa_printf(MSG_WARNING,
@@ -475,11 +475,11 @@ static int tls_connection_ca_cert(void *_ssl_ctx, struct tls_connection *conn,
       wpa_printf(MSG_DEBUG, "TLS: Trusted root certificate(s) loaded");
       tls_get_errors(ssl_ctx);
     }
-#else /* OPENSSL_NO_STDIO */
-    wpa_printf(MSG_DEBUG, "CyaSSL: %s - OPENSSL_NO_STDIO",
+#else /* NO_FILESYSTEM */
+    wpa_printf(MSG_DEBUG, "CyaSSL: %s - NO_FILESYSTEM",
 	       __func__);
     return -1;
-#endif /* OPENSSL_NO_STDIO */
+#endif /* NO_FILESYSTEM */
   } else {
     /* No ca_cert configured - do not try to verify server
      * certificate */
@@ -490,23 +490,48 @@ static int tls_connection_ca_cert(void *_ssl_ctx, struct tls_connection *conn,
 }
 
 
-static int tls_global_ca_cert(SSL_CTX *ssl_ctx, const char *ca_cert)
+static int tls_global_ca_cert(SSL_CTX *ssl_ctx,
+                              const char *ca_cert,
+                              const u8 *ca_cert_blob,
+                              size_t ca_cert_blob_len,
+                              const char *ca_path)
 {
-  if (ca_cert) {
-    if (SSL_CTX_load_verify_locations(ssl_ctx, ca_cert, NULL) != 1) {
+  if (ca_cert || ca_path) {
+#ifndef NO_FILESYSTEM
+    if (SSL_CTX_load_verify_locations(ssl_ctx, ca_cert, ca_path) != SSL_SUCCESS) {
       wpa_printf(MSG_WARNING,
 		 "CyaSSL: %s - Failed to load root certificates", __func__);
       return -1;
+    } else {
+      wpa_printf(MSG_DEBUG, "TLS: Trusted root certificate(s) loaded");
+    }
+#else
+    wpa_printf(MSG_DEBUG, "CyaSSL: %s - NO_FILESYSTEM", __func__);
+#endif
+
+    if (ca_cert_blob) {
+      if (CyaSSL_CTX_load_verify_buffer(ssl_ctx,
+                                        ca_cert_blob,
+                                        ca_cert_blob_len,
+                                        SSL_FILETYPE_PEM) != SSL_SUCCESS &&
+          CyaSSL_CTX_load_verify_buffer(ssl_ctx,
+                                        ca_cert_blob,
+                                        ca_cert_blob_len,
+                                        SSL_FILETYPE_ASN1) != SSL_SUCCESS) {
+        wpa_printf(MSG_WARNING,
+                   "CyaSSL: %s - Failed to add ca_cert_blob to certificate store",
+                   __func__);
+        return -1;
+      } else {
+        wpa_printf(MSG_DEBUG, "TLS: Trusted root certificate(s) loaded");
+      }
     }
 
-    wpa_printf(MSG_DEBUG, "TLS: Trusted root "
-	       "certificate(s) loaded");
-
-#ifndef OPENSSL_NO_STDIO
+#ifndef NO_FILESYSTEM
     /* Add the same CAs to the client certificate requests */
     SSL_CTX_set_client_CA_list(ssl_ctx,
 			       SSL_load_client_CA_file(ca_cert));
-#endif /* OPENSSL_NO_STDIO */
+#endif /* NO_FILESYSTEM */
   }
 
   return 0;
@@ -590,9 +615,9 @@ int tls_connection_set_verify(void *ssl_ctx, struct tls_connection *conn,
 
 
 static int tls_connection_client_cert(struct tls_connection *conn,
-				      const char *client_cert,
-				      const u8 *client_cert_blob,
-				      size_t client_cert_blob_len)
+                                      const char *client_cert,
+                                      const u8 *client_cert_blob,
+                                      size_t client_cert_blob_len)
 {
   if (client_cert_blob) {
     if (CyaSSL_use_certificate_buffer(conn->ssl,
@@ -611,7 +636,7 @@ static int tls_connection_client_cert(struct tls_connection *conn,
   if (client_cert == NULL)
     return -1;
 
-#ifndef OPENSSL_NO_STDIO
+#ifndef NO_FILESYSTEM
   if (CyaSSL_use_certificate_file(conn->ssl,
 				  client_cert,
 				  SSL_FILETYPE_ASN1) == SSL_SUCCESS) {
@@ -638,20 +663,46 @@ static int tls_connection_client_cert(struct tls_connection *conn,
 
   wpa_printf(MSG_DEBUG,
 	     "CyaSSL: %s - SSL_use_certificate_file failed", __func__);
-#else /* OPENSSL_NO_STDIO */
-  wpa_printf(MSG_DEBUG, "CyaSSL: %s - OPENSSL_NO_STDIO", __func__);
-#endif /* OPENSSL_NO_STDIO */
+#else /* NO_FILESYSTEM */
+  wpa_printf(MSG_DEBUG, "CyaSSL: %s - NO_FILESYSTEM", __func__);
+#endif /* NO_FILESYSTEM */
 
   return -1;
 }
 
 
-static int tls_global_client_cert(SSL_CTX *ssl_ctx, const char *client_cert)
+static int tls_global_client_cert(SSL_CTX *ssl_ctx,
+                                  const char *client_cert,
+                                  const u8* client_cert_blob,
+                                  size_t client_cert_blob_len)
 {
-#ifndef OPENSSL_NO_STDIO
-  if (client_cert == NULL)
-    return 0;
+  if (client_cert_blob) {
 
+    if (CyaSSL_CTX_use_certificate_buffer(ssl_ctx,
+                                          client_cert_blob,
+                                          client_cert_blob_len,
+                                          SSL_FILETYPE_ASN1) != SSL_SUCCESS &&
+        CyaSSL_CTX_use_certificate_chain_buffer(ssl_ctx,
+                                                client_cert_blob,
+                                                client_cert_blob_len) != SSL_SUCCESS &&
+        CyaSSL_CTX_use_certificate_buffer(ssl_ctx,
+                                          client_cert_blob,
+                                          client_cert_blob_len,
+                                          SSL_FILETYPE_PEM) != SSL_SUCCESS) {
+      wpa_printf(MSG_DEBUG,
+                 "CyaSSL: %s - (NO_FILESYSTEM) Failed to load client certificate",
+                 __func__);
+    } else {
+      wpa_printf(MSG_DEBUG,
+                 "CyaSSL:");
+      return 0;
+    }
+  }
+
+  if (client_cert == NULL)
+    return -1;
+
+#ifndef NO_FILESYSTEM
   if (CyaSSL_CTX_use_certificate_file(ssl_ctx,
 				      client_cert,
 				      SSL_FILETYPE_ASN1) != SSL_SUCCESS &&
@@ -661,16 +712,17 @@ static int tls_global_client_cert(SSL_CTX *ssl_ctx, const char *client_cert)
 				      client_cert,
 				      SSL_FILETYPE_PEM) != SSL_SUCCESS) {
     wpa_printf(MSG_INFO,
-	       "CyaSSL: %s - Failed to load client certificate", __func__);
+               "CyaSSL: %s - Failed to load client certificate",
+               __func__);
     return -1;
-  }
-  return 0;
-#else /* OPENSSL_NO_STDIO */
-  if (client_cert == NULL)
+  } else {
+    wpa_printf(MSG_DEBUG, "CyaSSL: SSL_use_certificate_file --> OK");
     return 0;
-  wpa_printf(MSG_DEBUG, "CyaSSL: %s - OPENSSL_NO_STDIO", __func__);
+  }
+#else
+  wpa_printf(MSG_DEBUG, "CyaSSL: %s - NO_FILESYSTEM", __func__);
   return -1;
-#endif /* OPENSSL_NO_STDIO */
+#endif /* NO_FILESYSTEM */
 }
 
 
@@ -867,7 +919,7 @@ static int tls_connection_private_key(void *_ssl_ctx,
   }
 
   while (!ok && private_key) {
-#ifndef OPENSSL_NO_STDIO
+#ifndef NO_FILESYSTEM
     if (CyaSSL_use_PrivateKey_file(conn->ssl,
 				   private_key,
 				   SSL_FILETYPE_ASN1) == 1) {
@@ -885,10 +937,10 @@ static int tls_connection_private_key(void *_ssl_ctx,
       ok = 1;
       break;
     }
-#else /* OPENSSL_NO_STDIO */
-    wpa_printf(MSG_DEBUG, "CyaSSL: %s - OPENSSL_NO_STDIO",
+#else /* NO_FILESYSTEM */
+    wpa_printf(MSG_DEBUG, "CyaSSL: %s - NO_FILESYSTEM",
 	       __func__);
-#endif /* OPENSSL_NO_STDIO */
+#endif /* NO_FILESYSTEM */
 
     if (tls_read_pkcs12(ssl_ctx, conn->ssl, private_key, passwd)
 	== 0) {
@@ -921,12 +973,16 @@ static int tls_connection_private_key(void *_ssl_ctx,
 }
 
 
-static int tls_global_private_key(SSL_CTX *ssl_ctx, const char *private_key,
-				  const char *private_key_passwd)
+static int tls_global_private_key(SSL_CTX *ssl_ctx,
+                                  const char *private_key,
+                                  const char *private_key_passwd,
+                                  const u8 *private_key_blob,
+                                  size_t private_key_blob_len)
 {
   char *passwd;
+  int ok;
 
-  if (private_key == NULL)
+  if (private_key == NULL && private_key_blob == NULL)
     return 0;
 
   if (private_key_passwd) {
@@ -938,29 +994,93 @@ static int tls_global_private_key(SSL_CTX *ssl_ctx, const char *private_key,
 
   SSL_CTX_set_default_passwd_cb(ssl_ctx, tls_passwd_cb);
   SSL_CTX_set_default_passwd_cb_userdata(ssl_ctx, passwd);
-  if (
-#ifndef OPENSSL_NO_STDIO
-      SSL_CTX_use_PrivateKey_file(ssl_ctx, private_key,
-				  SSL_FILETYPE_ASN1) != 1 &&
-      SSL_CTX_use_PrivateKey_file(ssl_ctx, private_key,
-				  SSL_FILETYPE_PEM) != 1 &&
-#endif /* OPENSSL_NO_STDIO */
-      tls_read_pkcs12(ssl_ctx, NULL, private_key, passwd)) {
+
+  ok = 0;
+  while (private_key_blob) {
+    if (CyaSSL_CTX_use_PrivateKey_buffer(ssl_ctx,
+                                         private_key_blob,
+                                         private_key_blob_len,
+                                         SSL_FILETYPE_ASN1) == SSL_SUCCESS) {
+      wpa_printf(MSG_DEBUG,
+                 "CyaSSL: CyaSSL_CTX_use_PrivateKey_buffer ASN1 --> OK");
+      ok = 1;
+      break;
+    }
+
+    if (CyaSSL_CTX_use_PrivateKey_buffer(ssl_ctx,
+                                         private_key_blob,
+                                         private_key_blob_len,
+                                         SSL_FILETYPE_PEM) == SSL_SUCCESS) {
+      wpa_printf(MSG_DEBUG,
+                 "CyaSSL: CyaSSL_CTX_use_PrivateKey_buffer PEM --> OK");
+      ok = 1;
+      break;
+    }
+
+    if (tls_read_pkcs12_blob(ssl_ctx,
+                             NULL,
+                             private_key_blob,
+                             private_key_blob_len,
+                             passwd) == 0) {
+      wpa_printf(MSG_DEBUG,
+                 "CyaSSL: PKCS#12 as blob --> OK");
+      ok = 1;
+      break;
+    }
+
+    break;
+  }
+
+  while (!ok && private_key) {
+#ifndef NO_FILESYSTEM
+    if (CyaSSL_CTX_use_PrivateKey_file(ssl_ctx,
+                                       private_key,
+                                       SSL_FILETYPE_ASN1) == 1) {
+      wpa_printf(MSG_DEBUG,
+                 "CyaSSL: CyaSSL_CTX_use_PrivateKey_File (DER) --> OK");
+      ok = 1;
+      break;
+    }
+
+    if (CyaSSL_CTX_use_PrivateKey_file(ssl_ctx,
+                                       private_key,
+                                       SSL_FILETYPE_PEM) == 1) {
+      wpa_printf(MSG_DEBUG,
+                 "CyaSSL: CyaSSL_CTX_use_PrivateKey_File (PEM) --> OK");
+      ok = 1;
+      break;
+    }
+#else /* NO_FILESYSTEM */
+    wpa_printf(MSG_DEBUG, "CyaSSL: %s - NO_FILESYSTEM", __func__);
+#endif /* NO_FILESYSTEM */
+
+    if (tls_read_pkcs12(ssl_ctx, NULL, private_key, passwd) == 0) {
+      wpa_printf(MSG_DEBUG, "CyaSSL: Reading PKCS#12 file --> OK");
+      ok = 1;
+      break;
+    }
+
+    break;
+  }
+
+  if (!ok) {
     wpa_printf(MSG_INFO, "CyaSSL: %s - Failed to load private key", __func__);
     os_free(passwd);
-    ERR_clear_error();
     return -1;
   }
-  os_free(passwd);
+
   ERR_clear_error();
   SSL_CTX_set_default_passwd_cb(ssl_ctx, NULL);
+  os_free(passwd);
 
-  if (!SSL_CTX_check_private_key(ssl_ctx)) {
+  if (!CyaSSL_CTX_check_private_key(ssl_ctx)) {
     wpa_printf(MSG_INFO,
-	       "CyaSSL: %s - Private key failed verification", __func__);
+               "CyaSSL: %s - Private key failed verification",
+               __func__);
     return -1;
   }
 
+  wpa_printf(MSG_DEBUG, "SSL: Private key loaded successfully");
   return 0;
 }
 
@@ -1437,14 +1557,24 @@ int tls_global_set_params(void *tls_ctx,
 	       __func__, ERR_error_string(err, NULL));
   }
 
-  if (tls_global_ca_cert(ssl_ctx, params->ca_cert))
+  if (tls_global_ca_cert(ssl_ctx,
+                         params->ca_cert,
+                         params->ca_cert_blob,
+                         params->ca_cert_blob_len,
+                         params->ca_path))
     return -1;
 
-  if (tls_global_client_cert(ssl_ctx, params->client_cert))
+  if (tls_global_client_cert(ssl_ctx,
+                             params->client_cert,
+                             params->client_cert_blob,
+                             params->client_cert_blob_len))
     return -1;
 
-  if (tls_global_private_key(ssl_ctx, params->private_key,
-			     params->private_key_passwd))
+  if (tls_global_private_key(ssl_ctx,
+                             params->private_key,
+                             params->private_key_passwd,
+                             params->private_key_blob,
+                             params->private_key_blob_len))
     return -1;
 
   if (params->dh_file) {
