@@ -47,4 +47,43 @@
 #endif /* USE_INTERNAL_CRYPTO */
 #endif /* CONFIG_WIN32_DEFAULTS */
 
+#ifdef NOS
+#define WPA_TYPES_DEFINED
+#include <typedef.h>
+typedef uint64_t u64;
+typedef uint32_t u32;
+typedef uint16_t u16;
+typedef uint8_t u8;
+typedef int64_t s64;
+typedef int32_t s32;
+typedef int16_t s16;
+typedef int8_t s8;
+
+#define WPA_BYTE_SWAP_DEFINED
+#include <nos_common.h>
+
+#ifdef BYTE_ORDER_LITTLE_ENDIAN
+#define __BYTE_ORDER    __LITTLE_ENDIAN
+#define le_to_host16(n) (n)
+#define host_to_le16(n) (n)
+#define be_to_host16(n) ntohs(n)
+#define host_to_be16(n) htons(n)
+#define le_to_host32(n) (n)
+#define host_to_le32(n) (n)
+#define be_to_host32(n) ntohl(n)
+#define host_to_be32(n) htonl(n)
+#elif defined BYTE_ORDER_BIG_ENDIAN
+#define __BYTE_ORDER    __BIG_ENDIAN
+#define le_to_host16(n) ntohs(n)
+#define host_to_le16(n) htons(n)
+#define be_to_host16(n) (n)
+#define host_to_be16(n) (n)
+#define le_to_host32(n) ntohl(n)
+#define host_to_le32(n) htonl(n)
+#define be_to_host32(n) (n)
+#define host_to_be32(n) (n)
+#endif
+
+#endif /* NOS */
+
 #endif /* BUILD_CONFIG_H */
