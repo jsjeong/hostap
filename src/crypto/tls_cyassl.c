@@ -963,11 +963,13 @@ static int tls_connection_private_key(void *_ssl_ctx,
   SSL_CTX_set_default_passwd_cb(ssl_ctx, NULL);
   os_free(passwd);
 
+#ifndef NO_FILESYSTEM
   if (!CyaSSL_CTX_check_private_key(conn->ssl_ctx)) {
     wpa_printf(MSG_INFO,
 	       "CyaSSL: %s - Private key failed verification", __func__);
     return -1;
   }
+#endif
 
   wpa_printf(MSG_DEBUG, "SSL: Private key loaded successfully");
   return 0;
@@ -1074,12 +1076,14 @@ static int tls_global_private_key(SSL_CTX *ssl_ctx,
   SSL_CTX_set_default_passwd_cb(ssl_ctx, NULL);
   os_free(passwd);
 
+#ifndef NO_FILESYSTEM
   if (!CyaSSL_CTX_check_private_key(ssl_ctx)) {
     wpa_printf(MSG_INFO,
                "CyaSSL: %s - Private key failed verification",
                __func__);
     return -1;
   }
+#endif
 
   wpa_printf(MSG_DEBUG, "SSL: Private key loaded successfully");
   return 0;
