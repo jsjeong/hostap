@@ -60,6 +60,14 @@ typedef int16_t s16;
 typedef int8_t s8;
 
 #define WPA_BYTE_SWAP_DEFINED
+#define CYASSL_USER_SETTINGS
+#define IEEE8021X_EAPOL
+#define EAP_TLS
+#define EAP_SERVER_IDENTITY
+#define EAP_SERVER_TLS
+#define EAP_SERVER
+#define OS_NO_C_LIB_DEFINES
+
 #include <nos_common.h>
 
 #ifdef BYTE_ORDER_LITTLE_ENDIAN
