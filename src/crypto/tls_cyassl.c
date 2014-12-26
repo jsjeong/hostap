@@ -249,6 +249,7 @@ void * tls_init(const struct tls_config *conf)
   }
 
   /* Save SSL_CTX. */
+  memset(conn, 0, sizeof(struct tls_connection));
   conn->ssl_ctx = ssl_ctx;
   ssl_conn[i] = conn;
 
@@ -507,33 +508,36 @@ static int tls_global_ca_cert(SSL_CTX *ssl_ctx,
       wpa_printf(MSG_DEBUG, "TLS: Trusted root certificate(s) loaded");
     }
 #else
-    wpa_printf(MSG_DEBUG, "CyaSSL: %s - NO_FILESYSTEM", __func__);
+    wpa_printf(MSG_DEBUG,
+	       "CyaSSL: %s - NO_FILESYSTEM "
+	       "but ca_cert & ca_path is specified.",
+	       __func__);
 #endif
+  }
 
-    if (ca_cert_blob) {
-      if (CyaSSL_CTX_load_verify_buffer(ssl_ctx,
-                                        ca_cert_blob,
-                                        ca_cert_blob_len,
-                                        SSL_FILETYPE_PEM) != SSL_SUCCESS &&
-          CyaSSL_CTX_load_verify_buffer(ssl_ctx,
-                                        ca_cert_blob,
-                                        ca_cert_blob_len,
-                                        SSL_FILETYPE_ASN1) != SSL_SUCCESS) {
-        wpa_printf(MSG_WARNING,
-                   "CyaSSL: %s - Failed to add ca_cert_blob to certificate store",
-                   __func__);
-        return -1;
-      } else {
-        wpa_printf(MSG_DEBUG, "TLS: Trusted root certificate(s) loaded");
-      }
+  if (ca_cert_blob) {
+    if (CyaSSL_CTX_load_verify_buffer(ssl_ctx,
+				      ca_cert_blob,
+				      ca_cert_blob_len,
+				      SSL_FILETYPE_PEM) != SSL_SUCCESS &&
+	CyaSSL_CTX_load_verify_buffer(ssl_ctx,
+				      ca_cert_blob,
+				      ca_cert_blob_len,
+				      SSL_FILETYPE_ASN1) != SSL_SUCCESS) {
+      wpa_printf(MSG_WARNING,
+		 "CyaSSL: %s - Failed to add ca_cert_blob to certificate store",
+		 __func__);
+      return -1;
+    } else {
+      wpa_printf(MSG_DEBUG, "TLS: Trusted root certificate(s) loaded");
     }
+  }
 
 #ifndef NO_FILESYSTEM
-    /* Add the same CAs to the client certificate requests */
-    SSL_CTX_set_client_CA_list(ssl_ctx,
-			       SSL_load_client_CA_file(ca_cert));
+  /* Add the same CAs to the client certificate requests */
+  SSL_CTX_set_client_CA_list(ssl_ctx,
+			     SSL_load_client_CA_file(ca_cert));
 #endif /* NO_FILESYSTEM */
-  }
 
   return 0;
 }
@@ -624,13 +628,32 @@ static int tls_connection_client_cert(struct tls_connection *conn,
     if (CyaSSL_use_certificate_buffer(conn->ssl,
 				      client_cert_blob,
 				      client_cert_blob_len,
-				      SSL_FILETYPE_ASN1) == SSL_SUCCESS) {
-      wpa_printf(MSG_DEBUG, "CyaSSL: SSL_use_certificate_ASN1 --> "
-		 "OK");
-      return 0;
-    } else {
+				      SSL_FILETYPE_ASN1)
+	== SSL_SUCCESS) {
       wpa_printf(MSG_DEBUG,
-		 "CyaSSL: %s - SSL_use_certificate_ASN1 failed", __func__);
+		 "CyaSSL: CyaSSL_use_certificate_buffer (ASN1) --> OK");
+      return 0;
+    }
+    else if (CyaSSL_use_certificate_chain_buffer(conn->ssl,
+						 client_cert_blob,
+						 client_cert_blob_len)
+	     == SSL_SUCCESS) {
+      wpa_printf(MSG_DEBUG,
+		 "CyaSSL: CyaSSL_use_certificate_chain_buffer --> OK");
+      return 0;
+    }
+    else if (CyaSSL_use_certificate_buffer(conn->ssl,
+					   client_cert_blob,
+					   client_cert_blob_len,
+					   SSL_FILETYPE_PEM)
+	     == SSL_SUCCESS) {
+      wpa_printf(MSG_DEBUG,
+		 "CyaSSL: CyaSSL_use_certificate_buffer (PEM) --> OK");
+      return 0;
+    }
+    else {
+      wpa_printf(MSG_DEBUG,
+		 "CyaSSL: %s - Loading blob certificate fail", __func__);
     }
   }
 
@@ -694,8 +717,7 @@ static int tls_global_client_cert(SSL_CTX *ssl_ctx,
                  "CyaSSL: %s - (NO_FILESYSTEM) Failed to load client certificate",
                  __func__);
     } else {
-      wpa_printf(MSG_DEBUG,
-                 "CyaSSL:");
+      wpa_printf(MSG_DEBUG, "CyaSSL: Client certificate(s) loaded");
       return 0;
     }
   }
