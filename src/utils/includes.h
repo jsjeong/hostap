@@ -20,6 +20,7 @@
 #include <stdio.h>
 #include <stdarg.h>
 #include <string.h>
+#ifndef NOS
 #ifndef _WIN32_WCE
 #ifndef CONFIG_TI_COMPILER
 #include <signal.h>
@@ -37,7 +38,6 @@
 
 #ifndef CONFIG_NATIVE_WINDOWS
 #ifndef CONFIG_TI_COMPILER
-#ifndef NOS
 #include <sys/socket.h>
 #include <netinet/in.h>
 #include <arpa/inet.h>
@@ -45,8 +45,8 @@
 #include <sys/uio.h>
 #include <sys/time.h>
 #endif /* __vxworks */
-#endif /* NOS */
 #endif /* CONFIG_TI_COMPILER */
 #endif /* CONFIG_NATIVE_WINDOWS */
+#endif /* NOS */
 
 #endif /* INCLUDES_H */

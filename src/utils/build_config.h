@@ -92,6 +92,9 @@ typedef int8_t s8;
 #define host_to_be32(n) (n)
 #endif
 
+#ifdef __CC_ARM
+#define inline __inline
+#endif /* __CC_ARM */
 #endif /* NOS */
 
 #endif /* BUILD_CONFIG_H */
